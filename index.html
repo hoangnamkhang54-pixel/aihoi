@@ -3,76 +3,111 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KHANG HOME CONTROL</title>
+    <title>KHANG SMART SCANNER</title>
     <style>
-        :root { --main: #00d2ff; --bg: #0d0e12; }
-        body { margin: 0; background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; padding: 20px; }
-        .container { max-width: 450px; margin: auto; }
-        .device-box { background: #1a1c23; border-radius: 20px; padding: 20px; margin-bottom: 20px; border: 1px solid #333; }
+        :root { --neon: #00f2ff; --bg: #0a0a0c; --card: #16161a; }
+        body { margin: 0; background: var(--bg); color: white; font-family: sans-serif; padding: 15px; }
         
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 15px; }
-        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #ff4757; }
-        .online { background: #00ff88; box-shadow: 0 0 10px #00ff88; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .scan-btn { padding: 10px 20px; border-radius: 20px; border: 2px solid var(--neon); background: transparent; color: var(--neon); font-weight: bold; cursor: pointer; }
+        .scan-btn:active { background: var(--neon); color: #000; }
 
-        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        button { padding: 15px; border-radius: 12px; border: none; background: #2d2d35; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        button:active { transform: scale(0.9); background: var(--main); }
-        .pwr { background: #ff4757; grid-column: span 2; }
+        /* LOADING ANIMATION */
+        #loading { display: none; text-align: center; margin: 20px 0; color: var(--neon); font-size: 14px; }
+        .spinner { width: 20px; height: 20px; border: 3px solid #333; border-top: 3px solid var(--neon); border-radius: 50%; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; margin-right: 10px; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* DANH SÁCH */
+        .device-card { background: var(--card); padding: 15px; border-radius: 20px; border: 1px solid #222; margin-bottom: 12px; animation: slideIn 0.3s ease; }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
         
-        .ip-config { font-size: 11px; color: #666; margin-top: 10px; }
+        .info { margin-bottom: 15px; }
+        .info b { color: var(--neon); display: block; margin-bottom: 4px; }
+        .info span { font-size: 12px; color: #666; }
+
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        button.ctrl { padding: 12px; border-radius: 10px; border: none; background: #2d2d35; color: white; font-size: 12px; font-weight: bold; cursor: pointer; }
+        button.pwr { grid-column: span 2; background: #ff4757; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2 style="text-align: center; color: var(--main);">HỆ THỐNG NỘI BỘ</h2>
+<div class="header">
+    <h1 style="font-size: 18px;">HỆ THỐNG CỦA KHANG</h1>
+    <button class="scan-btn" onclick="startScan()">🔍 DÒ THIẾT BỊ</button>
+</div>
 
-    <div class="device-box">
-        <div class="header">
-            <span>📺 TIVI (PHÒNG KHÁCH)</span>
-            <div id="tv-status" class="status-dot"></div>
-        </div>
-        <div class="controls">
-            <button class="pwr" onclick="send('TV', 'POWER')">BẬT / TẮT</button>
-            <button onclick="send('TV', 'VOL_UP')">ÂM LƯỢNG +</button>
-            <button onclick="send('TV', 'VOL_DOWN')">ÂM LƯỢNG -</button>
-        </div>
-        <div class="ip-config">IP: 192.168.1.15 (Bluetooth Relay)</div>
-    </div>
+<div id="loading">
+    <div class="spinner"></div> Đang quét mạng nội bộ...
+</div>
 
-    <div class="device-box">
-        <div class="header">
-            <span>❄️ ĐIỀU HÒA (PHÒNG NGỦ)</span>
-            <div id="ac-status" class="status-dot"></div>
-        </div>
-        <div class="controls">
-            <button class="pwr" onclick="send('AC', 'POWER')">BẬT / TẮT</button>
-            <button onclick="send('AC', 'TEMP_UP')">NHIỆT ĐỘ +</button>
-            <button onclick="send('AC', 'TEMP_DOWN')">NHIỆT ĐỘ -</button>
-        </div>
-        <div class="ip-config">IP: 192.168.1.20 (IR Blaster)</div>
-    </div>
+<div id="device-container">
+    <p style="text-align:center; color:#444; margin-top: 50px;">Nhấn "Dò thiết bị" để bắt đầu kết nối.</p>
 </div>
 
 <script>
-    // Hàm gửi lệnh trực tiếp trong mạng LAN
-    function send(device, cmd) {
-        const ips = {
-            'TV': '192.168.1.15', // Thay bằng IP thật của mạch ESP32 điều khiển TV
-            'AC': '192.168.1.20'  // Thay bằng IP thật của mạch ESP32 điều khiển Máy lạnh
-        };
+    // Hàm dò tìm thiết bị
+    async function startScan() {
+        const container = document.getElementById('device-container');
+        const loading = document.getElementById('loading');
+        
+        container.innerHTML = "";
+        loading.style.display = "block";
 
-        const targetIp = ips[device];
-        console.log(`Đang gửi lệnh ${cmd} tới ${targetIp}`);
+        // Giả sử mạng nhà bạn là 192.168.1.x
+        // Chúng ta sẽ quét các IP từ 192.168.1.1 đến 192.168.1.50 (quét ít để nhanh)
+        const baseIP = "192.168.1."; 
+        const foundDevices = [];
 
-        // Gửi yêu cầu HTTP GET tới mạch điều khiển
-        fetch(`http://${targetIp}/control?cmd=${cmd}`, { mode: 'no-cors' })
-            .then(() => {
-                document.getElementById(device.toLowerCase() + '-status').classList.add('online');
-            })
-            .catch(() => {
-                alert("Không tìm thấy thiết bị trong mạng! Kiểm tra lại IP.");
+        for (let i = 1; i <= 50; i++) {
+            const ip = baseIP + i;
+            
+            // Dùng kỹ thuật ping ngầm bằng Image
+            const check = new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve({ip, status: 'online'});
+                img.onerror = () => resolve(null);
+                // Thiết bị của bạn (ESP32) cần có 1 file ảnh nhỏ hoặc link /status để nhận diện
+                img.src = `http://${ip}/ping?t=${Date.now()}`;
+                
+                // Sau 500ms không thấy phản hồi thì bỏ qua
+                setTimeout(() => resolve(null), 500);
             });
+
+            const result = await check;
+            if (result) {
+                renderDevice(result.ip);
+            }
+        }
+
+        loading.style.display = "none";
+        if(container.innerHTML === "") {
+            container.innerHTML = '<p style="text-align:center; color:#ff4757">Không tìm thấy thiết bị nào đang mở!</p>';
+        }
+    }
+
+    function renderDevice(ip) {
+        const container = document.getElementById('device-container');
+        const card = document.createElement('div');
+        card.className = 'device-card';
+        card.innerHTML = `
+            <div class="info">
+                <b>THIẾT BỊ TÌM THẤY</b>
+                <span>Địa chỉ IP: ${ip}</span>
+            </div>
+            <div class="btn-group">
+                <button class="ctrl pwr" onclick="send('${ip}', 'POWER')">BẬT / TẮT</button>
+                <button class="ctrl" onclick="send('${ip}', 'UP')">LÊN / TĂNG</button>
+                <button class="ctrl" onclick="send('${ip}', 'DOWN')">XUỐNG / GIẢM</button>
+            </div>
+        `;
+        container.appendChild(card);
+    }
+
+    function send(ip, cmd) {
+        const img = new Image();
+        img.src = `http://${ip}/control?cmd=${cmd}&t=${Date.now()}`;
+        alert("Đã gửi lệnh " + cmd + " tới " + ip);
     }
 </script>
 </body>
