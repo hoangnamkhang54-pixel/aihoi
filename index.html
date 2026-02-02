@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KHANG HOME CONTROL</title>
+    <style>
+        :root { --main: #00d2ff; --bg: #0d0e12; }
+        body { margin: 0; background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; padding: 20px; }
+        .container { max-width: 450px; margin: auto; }
+        .device-box { background: #1a1c23; border-radius: 20px; padding: 20px; margin-bottom: 20px; border: 1px solid #333; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 15px; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #ff4757; }
+        .online { background: #00ff88; box-shadow: 0 0 10px #00ff88; }
+
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        button { padding: 15px; border-radius: 12px; border: none; background: #2d2d35; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button:active { transform: scale(0.9); background: var(--main); }
+        .pwr { background: #ff4757; grid-column: span 2; }
+        
+        .ip-config { font-size: 11px; color: #666; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2 style="text-align: center; color: var(--main);">HỆ THỐNG NỘI BỘ</h2>
+
+    <div class="device-box">
+        <div class="header">
+            <span>📺 TIVI (PHÒNG KHÁCH)</span>
+            <div id="tv-status" class="status-dot"></div>
+        </div>
+        <div class="controls">
+            <button class="pwr" onclick="send('TV', 'POWER')">BẬT / TẮT</button>
+            <button onclick="send('TV', 'VOL_UP')">ÂM LƯỢNG +</button>
+            <button onclick="send('TV', 'VOL_DOWN')">ÂM LƯỢNG -</button>
+        </div>
+        <div class="ip-config">IP: 192.168.1.15 (Bluetooth Relay)</div>
+    </div>
+
+    <div class="device-box">
+        <div class="header">
+            <span>❄️ ĐIỀU HÒA (PHÒNG NGỦ)</span>
+            <div id="ac-status" class="status-dot"></div>
+        </div>
+        <div class="controls">
+            <button class="pwr" onclick="send('AC', 'POWER')">BẬT / TẮT</button>
+            <button onclick="send('AC', 'TEMP_UP')">NHIỆT ĐỘ +</button>
+            <button onclick="send('AC', 'TEMP_DOWN')">NHIỆT ĐỘ -</button>
+        </div>
+        <div class="ip-config">IP: 192.168.1.20 (IR Blaster)</div>
+    </div>
+</div>
+
+<script>
+    // Hàm gửi lệnh trực tiếp trong mạng LAN
+    function send(device, cmd) {
+        const ips = {
+            'TV': '192.168.1.15', // Thay bằng IP thật của mạch ESP32 điều khiển TV
+            'AC': '192.168.1.20'  // Thay bằng IP thật của mạch ESP32 điều khiển Máy lạnh
+        };
+
+        const targetIp = ips[device];
+        console.log(`Đang gửi lệnh ${cmd} tới ${targetIp}`);
+
+        // Gửi yêu cầu HTTP GET tới mạch điều khiển
+        fetch(`http://${targetIp}/control?cmd=${cmd}`, { mode: 'no-cors' })
+            .then(() => {
+                document.getElementById(device.toLowerCase() + '-status').classList.add('online');
+            })
+            .catch(() => {
+                alert("Không tìm thấy thiết bị trong mạng! Kiểm tra lại IP.");
+            });
+    }
+</script>
+</body>
+</html>
